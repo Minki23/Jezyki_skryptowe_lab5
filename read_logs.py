@@ -4,7 +4,14 @@ import tarfile
 import datetime
 ipv4_matcher = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
 user_matcher = re.compile(r'(?<=user\s)[a-zA-Z0-9._-]+')
-message_type_matcher = re.compile(r'^(?!.*(?:Failed password|Invalid user|Connection closed|Received disconnect)).*$', re.MULTILINE)
+patterns = {
+        'successful_login': r'^.*authentication success.*$',
+        'failed_login': r'^.*authentication failure.*$',
+        'connection_closed': r'^.*Connection closed.*$',
+        'invalid_password': r'^.*Failed password.*$',
+        'invalid_user': r'^.*Invalid user.*$'
+    }
+message_type_matcher = re.compile(r'')
 def split_into_content(single_log:str):
   fragments=single_log.split(" ")
   if len(fragments[1])==0:
@@ -26,34 +33,33 @@ def main():
   dict=[]
   with open(f"{file_name}.log","r") as file:
     for line in file.readlines():
-      dict.append(split_into_content(line))
-      # ipv4=get_ipv4s_from_log(dict[-1]["message"])
-      # if ipv4[0]:
-      #   print(ipv4[1])
-      # user=get_user_from_log(dict[-1]["message"])
-      # if user[0]:
-      #   print(user[1])
+      val= split_into_content(line)
+      dict.append(val)
+      print(val)
+      ipv4=get_ipv4s_from_log(dict[-1]["message"])
+      print(ipv4)
+      user=get_user_from_log(dict[-1]["message"])
+      print(user)
       message_type = get_message_type(dict[-1]["message"])
-      if message_type[0]:
-        print(message_type)
+      print(message_type)
 
 def get_message_type(log_line:str):
-  res=re.findall(message_type_matcher,log_line)
-  if len(res)==0:
-    return (True,log_line)
-  return (False,res)
+  for key, pattern in patterns.items():
+        if re.match(pattern, log_line,re.IGNORECASE):
+            return key
+  return "other"
 
 def get_user_from_log(log_line:str):
   res=re.findall(user_matcher,log_line)
   if len(res)==0:
-    return False,""
-  return (True,res)
+    return None
+  return res
 
 def get_ipv4s_from_log(log_line:str):
   res=re.findall(ipv4_matcher,log_line)
   if len(res)==0:
-    return False,""
-  return (True,res)
+    return []
+  return res[0]
 
 if __name__ == "__main__":
   main()
