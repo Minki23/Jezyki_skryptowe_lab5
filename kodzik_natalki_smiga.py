@@ -1,0 +1,190 @@
+import re
+import sys
+import tarfile 
+import datetime
+import logging
+import random
+import datetime
+import operator
+from collections import defaultdict
+from statistics import mean, stdev
+ipv4_matcher = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
+user_matcher = re.compile(r'(?<=user\s)[a-zA-Z0-9._-]+')
+patterns = {
+        'successful_login': r'^.*authentication success.*$',
+        'failed_login': r'^.*authentication failure.*$',
+        'connection_closed': r'^.*Connection closed.*$',
+        'invalid_password': r'^.*Failed password.*$',
+        'invalid_user': r'^.*Invalid user.*$',
+        'break_in_attempt': r'^.*POSSIBLE BREAK-IN ATTEMPT!.*$'
+
+    }
+message_type_matcher = re.compile(r'')
+def split_into_content(single_log:str):
+  fragments=single_log.split(" ")
+  if len(fragments[1])==0:
+    fragments.remove("")
+  time=datetime.datetime.strptime(f"{fragments[0]}/{fragments[1]} {fragments[2]}","%b/%d %H:%M:%S")
+  current_year = datetime.datetime.now().year
+  formatted_log = {
+  "time" : time.replace(year=current_year),
+  "user" : fragments[3],
+  "code" : fragments[4][-7:-3],
+  "message" : " ".join(fragments[5:])
+  }
+  return formatted_log
+
+def main():
+  logging.basicConfig(encoding='utf-8', level=logging.DEBUG)
+
+  with tarfile.open(f'{sys.argv[1]}', "r:gz") as tar:  
+    tar.extractall()
+  file_name=sys.argv[1].split(".")[0][0:]
+  total_bytes = 0
+  dict=[]
+  with open(f"{file_name}.log","r") as file:
+    for line in file.readlines():
+      total_bytes += len(line)
+    #   logging.debug(f"Read {len(line)} bytes.")
+      val= split_into_content(line)
+      dict.append(val)
+    #   print(val)
+    #   ipv4=get_ipv4s_from_log(dict[-1]["message"])
+    #   print(ipv4)
+    #   user=get_user_from_log(dict[-1]["message"])
+    #   print(user)
+      message_type = get_message_type(dict[-1]["message"])
+
+      #zadanie 3
+      # if message_type == 'successful_login' or message_type == 'connection_closed':
+      #   logging.info(f"Info: {message_type}")
+    #   elif message_type == 'failed_login':
+    #       logging.warning(f"Warning: {message_type}")
+    #   elif message_type == 'invalid_password' or message_type == 'invalid_user':
+    #      logging.error(f"Error: {message_type}")  
+    #   elif message_type == 'break_in_attempt':
+    #      logging.critical(f"Critical : {message_type}")        
+
+    #   print(message_type)
+  logging.debug(f"Read all: {total_bytes} bytes.")
+  get_most_and_least_frequent_users(dict)
+  get_n_random_logs(dict, 3, "pi")
+  get_global_mean_and_stan_deviation_time(dict)
+  get_users_mean_and_stdev(dict)
+
+#ZADANIE 2
+
+def get_message_type(log_line:str):
+  for key, pattern in patterns.items():
+        if re.match(pattern, log_line,re.IGNORECASE):
+            return key
+  return "other"
+
+def get_user_from_log(log_line:str):
+  res=re.findall(user_matcher,log_line)
+  if len(res)==0:
+    return None
+  return res
+
+def get_ipv4s_from_log(log_line:str):
+  res=re.findall(ipv4_matcher,log_line)
+  if len(res)==0:
+    return []
+  return res[0]
+
+def get_user_from_log(log_line:str):
+  res=re.findall(user_matcher,log_line)
+  if len(res)==0:
+    return None
+  return res
+
+def get_ipv4s_from_log(log_line:str):
+  res=re.findall(ipv4_matcher,log_line)
+  if len(res)==0:
+    return []
+  return res[0]
+
+#zadanie 4 a
+def get_n_random_logs(logs_dict, n, username):
+  user_logs = [log["message"] for log in logs_dict if get_user_from_log(log["message"]) is not None and get_user_from_log(log["message"])[0] == username ]
+  user_random_logs = []
+  if user_logs:
+    for _ in range (n):
+      user_random_logs.append(random.choice(user_logs))
+    print_n_random_logs(user_random_logs)   
+    
+      
+def print_n_random_logs(list):
+  for elem in list:
+    print(f"{elem}")
+
+#zadanie 4 b 1 (fukcje uzywane tez do obliczen z 4 b2)
+
+def  print_mean_and_stand_dev_time(time_mean, standard_deviation):
+  print(f"Mean: {time_mean} Standard deviation: {standard_deviation}")
+
+
+def get_global_mean_and_stan_deviation_time(logs_dict):
+  first_time = logs_dict[0]["time"]
+  last_time = logs_dict[0]["time"]
+  times = []
+  index = 0
+  size = len(logs_dict)
+  for i in range (size-1):
+    if logs_dict[i]["code"] != logs_dict[index]["code"]:
+      last_time = logs_dict[i-1]["time"]
+      # first_datetime = datetime.datetime.strptime(first_time, "%Y-%m-%d %H:%M:%S")
+      # last_datetime = datetime.datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S")
+      times.append((last_time - first_time).total_seconds())
+      index = i
+      first_time = logs_dict[i]["time"]
+
+  if len(times) == 0:
+    time_mean = 0
+  else:  
+    time_mean = mean(times)
+  if len(times) > 1:
+    standard_deviation = stdev(times)
+  else: 
+    standard_deviation = 0  
+  print_mean_and_stand_dev_time(time_mean, standard_deviation)
+  
+
+ 
+#zadanie 4 b 2
+def print_user(user):
+  print(f"User: {user}")
+
+def get_users_mean_and_stdev(logs_dict):
+  users_dict = defaultdict(list)
+  for log in logs_dict:
+    if get_user_from_log(log["message"]) is not None:  
+      users_dict[get_user_from_log(log["message"])[0]].append(log)
+ 
+  for user, user_logs in users_dict.items():
+     print_user(user)
+     get_global_mean_and_stan_deviation_time(user_logs)
+
+ #byly testy robione
+  # sorted_users_dict = dict(sorted(users_dict.items(), key=operator.itemgetter(0)))
+
+  # for user, user_logs in sorted_users_dict.items():
+  #   print(f"User: {user}")
+  #   get_global_mean_and_stan_deviation_time(user_logs)
+
+
+#zadanie 4 c
+def print_most_and_least_frequent_users(most_common_user, least_common_user):
+   print(f"  most common : {most_common_user} least common: {least_common_user}" )
+   
+
+def get_most_and_least_frequent_users(logs_dict):
+    # logi to [dict, dict ....]
+    # dict to  "time" "user" "code" "message"
+    users = [get_user_from_log(log["message"])[0] for log in logs_dict if get_user_from_log(log["message"]) is not None]
+    most_common_user = max(set(users), key=users.count) 
+    least_common_user = min(set(users), key=users.count)  
+    print_most_and_least_frequent_users(most_common_user, least_common_user)
+
+if __name__ == "__main__":
+  main()
