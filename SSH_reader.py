@@ -5,8 +5,8 @@ import datetime
 import logging
 import random
 import argparse
-from collections import Counter, defaultdict
-from statistics import mean, stdev, pstdev
+from collections import defaultdict
+from statistics import mean, stdev
 
 log_dict_pattern = re.compile(r"(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<user>\w+)\s+sshd\[(?P<code>\d+)\]:\s+(?P<message>.*)")
 ipv4_matcher = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
@@ -90,17 +90,7 @@ def get_message_type(log_line:str):
             return key
   return "other"
 
-#zadanie 3 c
-def config_logger():
-  stdout_handler = logging.StreamHandler(sys.stdout)
-  stderr_handler = logging.StreamHandler(sys.stderr)
-  stdout_handler.setLevel(logging.WARNING)
-  stderr_handler.setLevel(logging.ERROR)
-  logger = logging.getLogger()
-  logger.setLevel(logging.DEBUG) 
-  logger.addHandler(stdout_handler)
-  logger.addHandler(stderr_handler)
-
+#zadanie 3
 def print_log_level(log_line: dict):
   message_type = get_message_type(log_line["message"])
   logging.debug(f"Debug: {len(log_line['message'].encode('utf-8'))} Bytes")
@@ -130,7 +120,7 @@ def print_n_random_logs(list):
 def  print_mean_and_stand_dev_time(time_mean, standard_deviation):
   print(f"Mean: {time_mean} Standard deviation: {standard_deviation}")
 
-def get_global_mean_and_stan_deviation_time(logs_dict):
+def get_global_mean_and_stan_deviation_time(user, logs_dict):
   first_time = logs_dict[0]["time"]
   last_time = logs_dict[0]["time"]
   times = []
@@ -151,7 +141,9 @@ def get_global_mean_and_stan_deviation_time(logs_dict):
     standard_deviation = stdev(times)
   else: 
     standard_deviation = 0  
-  print_mean_and_stand_dev_time(time_mean, standard_deviation)
+  if time_mean != 0:
+    print(f"User: {user}")
+    print_mean_and_stand_dev_time(time_mean, standard_deviation)
 
  
 #zadanie 4 b 2
@@ -192,8 +184,7 @@ def get_users_mean_and_stdev(logs_dict):
       users_dict[get_user_from_log(log["message"])[0]].append(log)
  
   for user, user_logs in users_dict.items():
-     print(f"User: {user}")
-     get_global_mean_and_stan_deviation_time(user_logs)
+     get_global_mean_and_stan_deviation_time(user,user_logs)
 
 #zadanie 4 c
 def get_most_and_least_frequent_users(logs_dict):
@@ -203,8 +194,8 @@ def get_most_and_least_frequent_users(logs_dict):
     print(f"Most common : {most_common}\nLeast common: {least_common}" )
 
 def get_dict(loglevel):
-  # with tarfile.open(f'{sys.argv[1]}', "r:gz") as tar:  
-  #   tar.extractall()
+  with tarfile.open(f'{sys.argv[1]}', "r:gz") as tar:  
+    tar.extractall()
   file_name=sys.argv[1].split(".")[0][0:]
   total_bytes = 0
   logs=[]
@@ -258,19 +249,24 @@ def main():
   parser.add_argument('logfile', help='The location of the log file')
   parser.add_argument('--loglevel', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], default = None, help='Set the minimum log level')
   subparsers = parser.add_subparsers(dest='command')
+
   subparsers.add_parser('2a', help='Print dictionaries')
   subparsers.add_parser('2b', help='Print all IPv4 addresses found in the logs')
   subparsers.add_parser('2c', help='Print all usernames found in the logs')
   subparsers.add_parser('2d', help='Print all message types found in the logs')
+
   subparser_n_logs = subparsers.add_parser('4a', help='Print n random logs for a given user')
   subparser_n_logs.add_argument('n', type=int, help='The number of logs to print')
   subparser_n_logs.add_argument('username', help='The username to print logs for')
+
   subparsers.add_parser('4b1', help='Print mean time and standard deviation between logs globally')
   subparsers.add_parser('4b2', help='Print mean time and standard deviation between logs for all users separately')
   subparsers.add_parser('4c', help='Print most and least frequent users in the logs')
+
   subparser_brute=subparsers.add_parser('6', help='Print brute force attacks in the logs')
   subparser_brute.add_argument('max_interval', type=int, help='The maximum time interval between failed login attempts')
   subparser_brute.add_argument('--single_user', action='store_true', help='Check if the attacks are from the same user')
+
   args = parser.parse_args()
   if args.loglevel is not None:
     logging.basicConfig(encoding="utf-8", level=args.loglevel)
@@ -291,7 +287,8 @@ def main():
       print(get_ipv4s_from_log(log["message"]))
   elif args.command == '2c':
     for log in logs:
-      print(get_user_from_log(log["message"]))
+      if get_user_from_log(log["message"]) is not None:
+        print(get_user_from_log(log["message"]))
   elif args.command == '2d':
     for log in logs:
       print(get_message_type(log["message"]))
