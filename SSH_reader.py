@@ -64,7 +64,6 @@ def parse_log_entry(log:str,loglevel):
         if loglevel is not None:
           print_log_level(dict)
         return dict
-
     return None
    
 #b
@@ -228,7 +227,7 @@ def detect_brute_force(logs, max_interval, single_user):
         if not single_user and get_user_from_log(current_log["message"]) != get_user_from_log(next_log["message"]) and current_ip == next_ip:
           if get_user_from_log(current_log["message"]) not in attacks[current_ip]["user"]:
             attacks[current_ip]["user"].append(get_user_from_log(current_log["message"]))
-          attacks[current_ip]["last_attack"] = next_time
+
       else:
         attacks[current_ip] = {
           "timestamp": current_log["time"],
